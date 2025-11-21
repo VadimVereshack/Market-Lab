@@ -1,5 +1,5 @@
-import { CabinetContent } from '@/components/features/cabinet/cabinet-content';
+import { Cabinet } from '@/components/features/cabinet/cabinet';
 
 export default function CabinetPage() {
-  return <CabinetContent />;
+  return <Cabinet />;
 }
