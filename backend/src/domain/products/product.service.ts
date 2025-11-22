@@ -10,7 +10,7 @@ export class ProductService {
     private readonly productRepository: ProductRepository) {}
 
   async create(dto: CreateProductDto): Promise<ProductEntity>{
-    const product = new ProductEntity(null, dto.name, dto.description, dto.price);
+    const product = ProductEntity.create(dto)
     return this.productRepository.create(product);
   }
 
@@ -27,7 +27,8 @@ export class ProductService {
   async update(id: string, dto: UpdateProductDto): Promise<ProductEntity>{
     const product = await this.productRepository.findById(id);
     if (!product) throw new NotFoundException(`Product ${id} not found`);
-    return this.productRepository.update(id, dto);
+    product.update(dto)
+    return this.productRepository.update(id, product);
   }
 
   async delete(id: string): Promise<void>{

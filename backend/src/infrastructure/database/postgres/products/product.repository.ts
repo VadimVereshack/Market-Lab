@@ -23,8 +23,6 @@ export class PostgresProductRepository extends DomainProductRepository {
 
 
   async create(product: ProductEntity): Promise<ProductEntity> {
-    const { v4: uuidv4 } = await import('uuid');
-    product.setId(uuidv4())
     return this.repository.save(product);
   }
 
