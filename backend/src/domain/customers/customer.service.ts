@@ -1,7 +1,8 @@
 import { Injectable, Inject, ConflictException, NotFoundException } from '@nestjs/common';
 import { CustomerDomainEntity } from './customer.entity';
 import { CustomerRepository } from './customer.repository';
-import { CreateCustomerDto, UpdateCustomerDto } from './types/customer.dto';
+import { CreateCustomerDto, UpdateCustomerDto, CUSTOMER_STATUS } from './types';
+
 
 @Injectable()
 export class CustomerService {
@@ -20,15 +21,15 @@ export class CustomerService {
     return customer;
   }
 
-  async findByEmail(email: string): Promise<CustomerDomainEntity> {
-    const customer = await this.customerRepository.findByEmail(email);
+  async findByUserId(userId: string): Promise<CustomerDomainEntity> {
+    const customer = await this.customerRepository.findByUserId(userId);
     if (!customer) throw new NotFoundException('Customer not found');
     return customer;
   }
 
   async create(createDto: CreateCustomerDto): Promise<CustomerDomainEntity> {
-    const existingCustomer = await this.customerRepository.findByEmail(createDto.email);
-    if (existingCustomer) throw new ConflictException('Customer with this email already exists');
+    const existingCustomer = await this.customerRepository.findByUserId(createDto.userId);
+    if (existingCustomer) throw new ConflictException('Customer profile already exists for this user');
 
     const customer = CustomerDomainEntity.create(createDto);
     return this.customerRepository.create(customer);
@@ -37,20 +38,43 @@ export class CustomerService {
   async update(id: string, updateDto: UpdateCustomerDto): Promise<CustomerDomainEntity> {
     const customer = await this.findById(id);
     customer.update(updateDto);
-    return this.customerRepository.update(id, customer);
+
+    const updated = await this.customerRepository.update(id, {
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      phone: customer.phone,
+      status: customer.status,
+      address: customer.address,
+      updatedAt: customer.updatedAt
+    });
+
+    if (!updated) throw new NotFoundException('Customer not found after update');
+    return updated;
   }
 
   async delete(id: string): Promise<void> {
     const customer = await this.findById(id);
     customer.deactivate();
-    await this.customerRepository.update(id, customer);
+
+    await this.customerRepository.update(id, {
+      status: customer.status,
+      updatedAt: customer.updatedAt
+    });
   }
 
   async activate(id: string): Promise<CustomerDomainEntity> {
-    return this.update(id, { isActive: true });
+    return this.update(id, { status: CUSTOMER_STATUS.ACTIVE });
   }
 
   async deactivate(id: string): Promise<CustomerDomainEntity> {
-    return this.update(id, { isActive: false });
+    return this.update(id, { status: CUSTOMER_STATUS.INACTIVE });
+  }
+
+  async findOne(filter: Partial<CustomerDomainEntity>): Promise<CustomerDomainEntity | null> {
+    return this.customerRepository.findOne(filter);
+  }
+
+  async findMany(filter: Partial<CustomerDomainEntity>): Promise<CustomerDomainEntity[]> {
+    return this.customerRepository.findMany(filter);
   }
 }

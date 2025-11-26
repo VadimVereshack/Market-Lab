@@ -1,133 +1,141 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { RegisterDto, RequestSupplierDto, UserPayload, ROLES, Role } from './types';
-import type { CustomerModel } from '@domain/customers/types';
-import { EncryptService } from './encrypt/encrypt.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
+import { EncryptService } from './encrypt/encrypt.service';
+import { RegisterDto, RegSupplierProfileDto, RegCustomerProfileDto } from './types';
 
-import { CustomerOrmEntity } from '@infrastructure/database/postgres/customers/customer.entity';
-import { SupplierOrmEntity } from '@infrastructure/database/postgres/suppliers/supplier.entity';
+import { UserOrmEntity } from '@infrastructure/database/postgres/users/user.entity';
+import { CustomerProfileOrmEntity } from '@infrastructure/database/postgres/customers/customer.entity';
+import { SupplierProfileOrmEntity } from '@infrastructure/database/postgres/suppliers/supplier.entity';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly encryptService: EncryptService,
-    private readonly jwtService: JwtService,
+    private readonly encrypt: EncryptService,
+    private readonly jwt: JwtService,
 
-    @InjectRepository(CustomerOrmEntity)
-    private readonly customerRepo: Repository<CustomerOrmEntity>,
+    @InjectRepository(UserOrmEntity)
+    private readonly userRepo: Repository<UserOrmEntity>,
 
-    @InjectRepository(SupplierOrmEntity)
-    private readonly supplierRepo: Repository<SupplierOrmEntity>,
+    @InjectRepository(CustomerProfileOrmEntity)
+    private readonly customerRepo: Repository<CustomerProfileOrmEntity>,
+
+    @InjectRepository(SupplierProfileOrmEntity)
+    private readonly supplierRepo: Repository<SupplierProfileOrmEntity>,
   ) { }
 
-
-  // REGISTRATION (always as Customer)
+  //  REGISTRATION
   async register(dto: RegisterDto) {
-    const { email, password } = dto;
+    const { email, password, role, profile } = dto;
 
-    const existing = await this.customerRepo.findOne({ where: { email } });
-    if (existing) throw new ConflictException('Email already exists');
-    if (password.length < 6) throw new BadRequestException('Password must be at least 6 characters');
+    const exists = await this.userRepo.findOne({ where: { email } });
+    if (exists) throw new ConflictException('Email already registered');
 
-    const hash = await this.encryptService.hash(password);
+    const passwordHash = await this.encrypt.hash(password);
 
-    // Created by customer with email and password
-    const customer = this.customerRepo.create({
+    const user = this.userRepo.create({
       email,
-      password: hash,
-      roles: [ROLES.CUSTOMER],
+      password: passwordHash,
+      roles: [role],
     });
 
-    await this.customerRepo.save(customer);
-    return this._buildAuthResponse(customer);
-  }
+    await this.userRepo.save(user);
 
-  // LOGIN
-  async validateUser(credentials: { email: string; password: string }): Promise<CustomerModel | null> {
-    const user = await this.customerRepo.findOne({
-      where: { email: credentials.email },
-      select: ['id', 'email', 'password', 'roles', 'createdAt', 'updatedAt']
-    });
+    // CUSTOMER PROFILE
+    if (role === 'customer') {
+      const customerProfile = profile as RegCustomerProfileDto;
 
-    if (!user) return null;
+      const customer = this.customerRepo.create({
+        user_id: user.id,
+        firstName: customerProfile.firstName,
+        lastName: customerProfile.lastName,
+        phone: customerProfile.phone,
+        // address: customerProfile.address
+      });
+      await this.customerRepo.save(customer);
+    }
 
-    const isValid = await this.encryptService.compare(
-      credentials.password,
-      user.password,
-    );
+    // SUPPLIER PROFILE
+    if (role === 'supplier') {
+      const supplierProfile = profile as RegSupplierProfileDto;
 
-    if (!isValid) return null;
-
-    const { password, ...safeUser } = user;
-    return safeUser as CustomerModel;
-  }
-
-  async login(customerId: string) {
-    const found = await this.customerRepo.findOne({
-      where: { id: customerId },
-    });
-
-    if (!found) throw new NotFoundException('User not found');
-
-    return this._buildAuthResponse(found);
-  }
-
-  // BECOME A SUPPLIER
-  async requestSupplier(customerId: string, dto: RequestSupplierDto): Promise<SupplierOrmEntity> {
-    const customer = await this.customerRepo.findOne({ where: { id: customerId } });
-    if (!customer) throw new NotFoundException('Customer not found');
-
-    let supplier = await this.supplierRepo.findOne({
-      where: { customer: { id: customerId } },
-      relations: ['customer'],
-    });
-
-    if (supplier) {
-      supplier.name = dto.name;
-      supplier.phone = dto.phone;
-      supplier.documents = dto.documents;
-      supplier.status = 'pending';
-      await this.supplierRepo.save(supplier);
-    } else {
-      supplier = this.supplierRepo.create({
-        customer,
-        name: dto.name,
-        phone: dto.phone,
-        email: customer.email,
-        documents: dto.documents,
-        status: 'pending',
+      const supplier = this.supplierRepo.create({
+        user_id: user.id,
+        companyName: supplierProfile.companyName,
+        registrationNumber: supplierProfile.registrationNumber,
+        address: supplierProfile.address,
+        email: user.email,
+        phone: supplierProfile.phone || '',
+        documents: supplierProfile.documents ?? [],
       });
       await this.supplierRepo.save(supplier);
     }
 
-    const updatedRoles = [...customer.roles];
-    if (!updatedRoles.includes(ROLES.SUPPLIER)) updatedRoles.push(ROLES.SUPPLIER);
-
-    await this.customerRepo.update(customerId, {
-      roles: updatedRoles,
-      updatedAt: new Date()
-    });
-
-    supplier.customer.roles = updatedRoles;
-    return supplier;
+    return this._authResponse(user);
   }
 
+  //  REQUEST SUPPLIER (become supplier button)
+  async requestSupplier(userId: string, dto: RegSupplierProfileDto) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException();
+
+    // Already supplier? Do nothing
+    if (user.roles.includes('supplier')) {
+      throw new BadRequestException('Already a supplier');
+    }
+
+    // Add role
+    user.roles.push('supplier');
+    await this.userRepo.save(user);
+
+    // Create supplier profile
+    const supplierProfile = this.supplierRepo.create({
+      user_id: user.id,
+      companyName: dto.companyName,
+      registrationNumber: dto.registrationNumber,
+      address: dto.address,
+      email: user.email,
+      phone: dto.phone || '',
+      documents: dto.documents ?? [],
+    });
+
+    await this.supplierRepo.save(supplierProfile);
+
+    return this._authResponse(user);
+  }
+
+  //  LOGIN
+  async validateUser(email: string, password: string) {
+    const user = await this.userRepo.findOne({ where: { email } });
+    if (!user) return null;
+
+    const valid = await this.encrypt.compare(password, user.password);
+    if (!valid) return null;
+
+    const { password: _, ...safe } = user;
+    return safe;
+  }
+
+  async login(userId: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException();
+    return this._authResponse(user);
+  }
 
   // @internal
-  private _buildAuthResponse(customer: CustomerOrmEntity) {
-    const payload: UserPayload = {
-      id: customer.id,
-      email: customer.email,
-      roles: customer.roles as Role[],
-    };
+  private _authResponse(user: UserOrmEntity) {
+    const token = this.jwt.sign({
+      id: user.id,
+      email: user.email,
+      roles: user.roles,
+    });
 
-    const { password, ...user } = customer;
+    const { password, ...safe } = user;
 
     return {
-      access_token: this.jwtService.sign(payload),
-      user,
+      access_token: token,
+      user: safe,
     };
   }
 }

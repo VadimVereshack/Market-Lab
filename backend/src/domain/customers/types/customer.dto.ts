@@ -1,16 +1,14 @@
 // Use it to type the incoming data
-import { CustomerAddress } from "./customer.type";
+import { CustomerAddress, CustomerStatus } from "./customer.type";
 
 export interface CreateCustomerDto {
-  email: string;
-  password: string,
+  userId: string;
   firstName: string;
   lastName: string;
-
-  phone?: string;
+  phone: string;
   address?: CustomerAddress;
 }
 
-export interface UpdateCustomerDto extends Partial<CreateCustomerDto> {
-  isActive: boolean;
+export interface UpdateCustomerDto extends Partial<Omit<CreateCustomerDto, 'userId'>> {
+  status?: CustomerStatus;
 }

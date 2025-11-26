@@ -1,39 +1,45 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { CustomerOrmEntity } from '../customers/customer.entity';
-
-export type SupplierStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
+import { Entity, Column, PrimaryGeneratedColumn, OneToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { UserOrmEntity } from '../users/user.entity';
 
 @Entity('suppliers')
-export class SupplierOrmEntity {
+export class SupplierProfileOrmEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => CustomerOrmEntity)
-  @JoinColumn({ name: 'customer_id' })
-  customer: CustomerOrmEntity;
+  @OneToOne(() => UserOrmEntity, user => user.supplierProfile)
+  @JoinColumn({ name: 'user_id' })
+  user: UserOrmEntity;
 
-  @Column({ type: 'varchar', length: 255 })
-  name: string;
+  @Column()
+  user_id: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column()
+  companyName: string;
+
+  @Column({ unique: true })
+  registrationNumber: string;
+
+  @Column()
+  address: string;
+
+  @Column()
   email: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  phone?: string;
+  @Column()
+  phone: string;
 
-  @Column({ type: 'text', nullable: true })
-  documents?: string;
+  @Column('simple-array')
+  documents: string[];
 
   @Column({
     type: 'varchar',
-    length: 20,
     default: 'pending'
   })
-  status: SupplierStatus;
+  status: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn()
   updatedAt: Date;
 }

@@ -16,10 +16,10 @@ export class CustomersController {
     return this.customerService.findById(id);
   }
 
-  @Get('email/:email')
-  async findByEmail(@Param('email') email: string) {
-    return this.customerService.findByEmail(email);
-  }
+  // @Get('email/:email')
+  // async findByEmail(@Param('email') email: string) {
+  //   return this.customerService.findByEmail(email);
+  // }
 
   @Post()
   async create(@Body() createDto: CreateCustomerDto) {

@@ -1,40 +1,45 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
-import { CustomerRole, CustomerAddress } from '@domain/customers/types';
+import { Entity, Column, PrimaryGeneratedColumn, OneToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { UserOrmEntity } from '../users/user.entity';
 
 @Entity('customers')
-export class CustomerOrmEntity {
+export class CustomerProfileOrmEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 255, unique: true })
-  @Index('idx_customers_email')
-  email: string;
+  @OneToOne(() => UserOrmEntity, user => user.customerProfile)
+  @JoinColumn({ name: 'user_id' })
+  user: UserOrmEntity;
 
-  @Column({ type: 'varchar', length: 255 })
-  password: string;
+  @Column()
+  user_id: string;
 
-  @Column({ name: 'first_name', type: 'varchar', length: 100, nullable: true })
+  @Column()
   firstName: string;
 
-  @Column({ name: 'last_name', type: 'varchar', length: 100, nullable: true })
+  @Column()
   lastName: string;
 
-  @Column({ type: 'jsonb', default: ['customer'] })
-  roles: CustomerRole[];
+  @Column()
+  phone: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  phone?: string;
+  @Column({
+    type: 'varchar',
+    default: 'active'
+  })
+  status: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  address: CustomerAddress | null;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+  } | null;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn()
   updatedAt: Date;
-
-  @Column({ name: 'is_active', default: true })
-  @Index('idx_customers_is_active')
-  isActive: boolean;
 }

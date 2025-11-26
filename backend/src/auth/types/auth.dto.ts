@@ -1,12 +1,59 @@
-import { IsEmail, IsOptional, IsString, MinLength, Matches } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsIn, ValidateNested, IsOptional, IsObject } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ROLES } from './auth.type';
+import type { Role } from './auth.type';
+
+
+export class RegCustomerProfileDto {
+  @IsString()
+  firstName: string;
+
+  @IsString()
+  lastName: string;
+
+  @IsString()
+  phone: string;
+
+  @IsString()
+  address: string;
+}
+
+export class RegSupplierProfileDto {
+  @IsString()
+  companyName: string;
+
+  @IsString()
+  registrationNumber: string;
+
+  @IsString()
+  phone: string;
+
+  @IsString()
+  address: string;
+
+  @IsOptional()
+  @IsObject()
+  documents?: string[];
+}
 
 export class RegisterDto {
   @IsEmail()
   email: string;
 
   @IsString()
-  @MinLength(6, { message: 'Password must be at least 6 characters' })
+  @MinLength(6)
   password: string;
+
+  @IsIn([ROLES.CUSTOMER, ROLES.SUPPLIER])
+  role: Role;
+
+  @ValidateNested()
+  @Type((obj) =>
+    obj?.object?.role === ROLES.SUPPLIER
+      ? RegSupplierProfileDto
+      : RegCustomerProfileDto
+  )
+  profile: RegCustomerProfileDto | RegSupplierProfileDto;
 }
 
 export class LoginDto {
@@ -15,19 +62,4 @@ export class LoginDto {
 
   @IsString()
   password: string;
-}
-
-export class RequestSupplierDto {
-  @IsString()
-  @MinLength(2, { message: 'Company name must be at least 2 characters' })
-  name: string;
-
-  @IsOptional()
-  @IsString()
-  @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'Invalid phone number format' }) // E.164 format
-  phone?: string;
-
-  @IsOptional()
-  @IsString()
-  documents?: string;
 }

@@ -10,19 +10,24 @@ import { AuthLocalStrategy } from './strategy/auth-local.strategy';
 import { AuthJwtStrategy } from './strategy/auth-jwt.strategy';
 import { EncryptModule } from './encrypt/encrypt.module';
 
-import { CustomerOrmEntity } from '@infrastructure/database/postgres/customers/customer.entity';
-import { SupplierOrmEntity } from '@infrastructure/database/postgres/suppliers/supplier.entity';
+import { UserOrmEntity } from '@infrastructure/database/postgres/users/user.entity';
+import { CustomerProfileOrmEntity } from '@infrastructure/database/postgres/customers/customer.entity';
+import { SupplierProfileOrmEntity } from '@infrastructure/database/postgres/suppliers/supplier.entity';
 
 @Module({
   imports: [
     ConfigModule,
     PassportModule,
+    EncryptModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useClass: AuthJwtConfig,
     }),
-    TypeOrmModule.forFeature([CustomerOrmEntity, SupplierOrmEntity]),
-    EncryptModule,
+    TypeOrmModule.forFeature([
+      UserOrmEntity,
+      CustomerProfileOrmEntity,
+      SupplierProfileOrmEntity
+    ]),
   ],
   providers: [
     AuthService,

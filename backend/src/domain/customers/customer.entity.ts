@@ -1,30 +1,53 @@
-import { CreateCustomerDto, UpdateCustomerDto, CustomerRole, CustomerModel, CustomerAddress, CUSTOMER_DEFAULTS } from './types';
+import {
+  CreateCustomerDto,
+  UpdateCustomerDto,
+  CustomerModel,
+  CustomerAddress,
+  CustomerStatus,
+  CUSTOMER_STATUS
+} from './types';
 
 export class CustomerDomainEntity implements CustomerModel {
-  constructor(
-    public id: string,
-    public email: string,
-    public password: string,
-    public firstName: string,
-    public lastName: string,
-    public roles: CustomerRole[] = CUSTOMER_DEFAULTS.ROLES,
-    public phone?: string,
-    public address?: CustomerAddress,
-    public createdAt: Date = new Date(),
-    public updatedAt: Date = new Date(),
-    public isActive: boolean = CUSTOMER_DEFAULTS.IS_ACTIVE
-  ) { }
+  public id: string;
+  public userId: string;
+  public firstName: string;
+  public lastName: string;
+  public phone: string;
+  public status: CustomerStatus;
+  public address?: CustomerAddress;
+  public createdAt: Date;
+  public updatedAt: Date;
 
-  // Business methods
+  constructor(
+    id: string,
+    userId: string,
+    firstName: string,
+    lastName: string,
+    phone: string,
+    status: CustomerStatus = CUSTOMER_STATUS.ACTIVE,
+    address?: CustomerAddress,
+    createdAt: Date = new Date(),
+    updatedAt: Date = new Date()
+  ) {
+    this.id = id;
+    this.userId = userId;
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.phone = phone;
+    this.status = status;
+    this.address = address;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
+  }
+
   static create(createDto: CreateCustomerDto): CustomerDomainEntity {
     return new CustomerDomainEntity(
-      '', // ID autogenerate in DB 
-      createDto.email,
-      createDto.password,
+      crypto.randomUUID(),
+      createDto.userId,
       createDto.firstName,
       createDto.lastName,
-      CUSTOMER_DEFAULTS.ROLES,
       createDto.phone,
+      CUSTOMER_STATUS.ACTIVE,
       createDto.address
     );
   }
@@ -32,40 +55,20 @@ export class CustomerDomainEntity implements CustomerModel {
   update(updateDto: UpdateCustomerDto): void {
     if (updateDto.firstName) this.firstName = updateDto.firstName;
     if (updateDto.lastName) this.lastName = updateDto.lastName;
-    if (updateDto.phone !== undefined) this.phone = updateDto.phone;
+    if (updateDto.phone) this.phone = updateDto.phone;
     if (updateDto.address) this.address = { ...this.address, ...updateDto.address };
-    if (updateDto.isActive !== undefined) this.isActive = updateDto.isActive;
+    if (updateDto.status) this.status = updateDto.status;
 
     this.updatedAt = new Date();
   }
 
   activate(): void {
-    this.isActive = true;
+    this.status = CUSTOMER_STATUS.ACTIVE;
     this.updatedAt = new Date();
   }
 
   deactivate(): void {
-    this.isActive = false;
+    this.status = CUSTOMER_STATUS.INACTIVE;
     this.updatedAt = new Date();
-  }
-
-  // for ROLES
-  addRole(role: CustomerRole): void {
-    if (!this.roles.includes(role)) {
-      this.roles.push(role);
-      this.updatedAt = new Date();
-    }
-  }
-
-  removeRole(role: CustomerRole): void {
-    const index = this.roles.indexOf(role);
-    if (index > -1) {
-      this.roles.splice(index, 1);
-      this.updatedAt = new Date();
-    }
-  }
-
-  hasRole(role: CustomerRole): boolean {
-    return this.roles.includes(role);
   }
 }

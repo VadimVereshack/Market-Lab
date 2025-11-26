@@ -1,15 +1,16 @@
 // Use it to type the incoming data
-import type { SupplierStatus } from './supplier.type';
+import { SupplierStatus } from './supplier.type';
 
 export interface CreateSupplierDto {
-  name: string;
-  phone?: string;
-  documents?: string;
+  userId: string;
+  companyName: string;
+  registrationNumber: string;
+  address: string;
+  email: string;
+  phone: string;
+  documents?: string[];
 }
 
-export interface UpdateSupplierDto {
-  name?: string;
-  phone?: string;
-  documents?: string;
+export interface UpdateSupplierDto extends Partial<Omit<CreateSupplierDto, 'userId'>> {
   status?: SupplierStatus;
 }

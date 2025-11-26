@@ -1,4 +1,10 @@
-export type Role = 'customer' | 'supplier' | 'admin';
+export const ROLES = {
+  CUSTOMER: 'customer',
+  SUPPLIER: 'supplier',
+  ADMIN: 'admin'
+} as const;
+
+export type Role = typeof ROLES[keyof typeof ROLES];
 
 export interface UserPayload {
   id: string;
@@ -20,3 +26,4 @@ export interface ValidateUserResponse {
 export interface AuthRequest extends Request {
   user: SessionUser;
 }
+

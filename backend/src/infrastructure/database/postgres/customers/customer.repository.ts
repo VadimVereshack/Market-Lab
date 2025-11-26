@@ -3,18 +3,21 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CustomerRepository as DomainCustomerRepository } from '@domain/customers/customer.repository';
 import { CustomerDomainEntity } from '@domain/customers/customer.entity';
-import { CustomerOrmEntity } from './customer.entity';
+import { CustomerProfileOrmEntity } from './customer.entity';
+import { CustomerStatus } from '@domain/customers/types';
 
 @Injectable()
 export class PostgresCustomerRepository extends DomainCustomerRepository {
   constructor(
-    @InjectRepository(CustomerOrmEntity)
-    private readonly repository: Repository<CustomerOrmEntity>,
-  ) { super() }
+    @InjectRepository(CustomerProfileOrmEntity)
+    private readonly repository: Repository<CustomerProfileOrmEntity>,
+  ) {
+    super();
+  }
 
   async findAll(): Promise<CustomerDomainEntity[]> {
     const ormEntities = await this.repository.find({
-      where: { isActive: true },
+      relations: ['user'],
       order: { createdAt: 'DESC' },
     });
     return ormEntities.map(this.toDomainEntity);
@@ -22,31 +25,45 @@ export class PostgresCustomerRepository extends DomainCustomerRepository {
 
   async findById(id: string): Promise<CustomerDomainEntity | null> {
     if (!id) return null;
-    const ormEntity = await this.repository.findOne({ where: { id } });
+    const ormEntity = await this.repository.findOne({
+      where: { id },
+      relations: ['user']
+    });
+    return ormEntity ? this.toDomainEntity(ormEntity) : null;
+  }
+
+  async findByUserId(userId: string): Promise<CustomerDomainEntity | null> {
+    const ormEntity = await this.repository.findOne({
+      where: { user_id: userId },
+      relations: ['user']
+    });
     return ormEntity ? this.toDomainEntity(ormEntity) : null;
   }
 
   async findByEmail(email: string): Promise<CustomerDomainEntity | null> {
-    const ormEntity = await this.repository.findOne({ where: { email } });
+    const ormEntity = await this.repository.findOne({
+      where: { user: { email } },
+      relations: ['user']
+    });
     return ormEntity ? this.toDomainEntity(ormEntity) : null;
   }
 
-  async create(customer: CustomerDomainEntity): Promise<CustomerDomainEntity> {
-    const ormEntity = this.toOrmEntity(customer);
+  async create(data: Partial<CustomerDomainEntity>): Promise<CustomerDomainEntity> {
+    const ormEntity = this.toOrmEntity(data);
     const savedOrmEntity = await this.repository.save(ormEntity);
     return this.toDomainEntity(savedOrmEntity);
   }
 
-  async update(id: string, customer: CustomerDomainEntity): Promise<CustomerDomainEntity> {
+  async update(id: string, data: Partial<CustomerDomainEntity>): Promise<CustomerDomainEntity | null> {
     if (!id) throw new Error('Customer ID is required for update');
 
-    const ormEntity = this.toOrmEntity(customer);
-    await this.repository.update(id, ormEntity);
-    const updatedOrmEntity = await this.repository.findOne({ where: { id } });
+    await this.repository.update(id, data);
+    const updatedOrmEntity = await this.repository.findOne({
+      where: { id },
+      relations: ['user']
+    });
 
-    if (!updatedOrmEntity) throw new Error(`Customer with id ${id} not found after update`);
-
-    return this.toDomainEntity(updatedOrmEntity);
+    return updatedOrmEntity ? this.toDomainEntity(updatedOrmEntity) : null;
   }
 
   async delete(id: string): Promise<void> {
@@ -54,37 +71,49 @@ export class PostgresCustomerRepository extends DomainCustomerRepository {
     await this.repository.delete(id);
   }
 
-  private toDomainEntity(ormEntity: CustomerOrmEntity): CustomerDomainEntity {
+  // QueryableRepository methods
+  async findOne(filter: Partial<CustomerDomainEntity>): Promise<CustomerDomainEntity | null> {
+    const ormEntity = await this.repository.findOne({
+      where: filter,
+      relations: ['user']
+    });
+    return ormEntity ? this.toDomainEntity(ormEntity) : null;
+  }
+
+  async findMany(filter: Partial<CustomerDomainEntity>): Promise<CustomerDomainEntity[]> {
+    const ormEntities = await this.repository.find({
+      where: filter,
+      relations: ['user']
+    });
+    return ormEntities.map(this.toDomainEntity);
+  }
+
+  private toDomainEntity(ormEntity: CustomerProfileOrmEntity): CustomerDomainEntity {
     return new CustomerDomainEntity(
       ormEntity.id,
-      ormEntity.email,
-      ormEntity.password,
+      ormEntity.user_id,
       ormEntity.firstName,
       ormEntity.lastName,
-      ormEntity.roles,
       ormEntity.phone,
-      ormEntity.address || undefined, // convert null to undefined
+      ormEntity.status as CustomerStatus,
+      ormEntity.address || undefined,
       ormEntity.createdAt,
-      ormEntity.updatedAt,
-      ormEntity.isActive
+      ormEntity.updatedAt
     );
   }
 
-  private toOrmEntity(domainEntity: CustomerDomainEntity): CustomerOrmEntity {
-    const ormEntity = new CustomerOrmEntity();
-    //! Don't set the ID if it's empty - TypeORM will generate it automatically.
-    if (domainEntity.id) ormEntity.id = domainEntity.id;
+  private toOrmEntity(domainEntity: Partial<CustomerDomainEntity>): CustomerProfileOrmEntity {
+    const ormEntity = new CustomerProfileOrmEntity();
 
-    ormEntity.email = domainEntity.email;
-    ormEntity.password = domainEntity.password;
-    ormEntity.firstName = domainEntity.firstName;
-    ormEntity.lastName = domainEntity.lastName;
-    ormEntity.roles = domainEntity.roles;
-    ormEntity.phone = domainEntity.phone;
-    ormEntity.address = domainEntity.address || null; // undefined to null for DB
-    ormEntity.createdAt = domainEntity.createdAt;
-    ormEntity.updatedAt = domainEntity.updatedAt;
-    ormEntity.isActive = domainEntity.isActive;
+    if (domainEntity.id) ormEntity.id = domainEntity.id;
+    if (domainEntity.userId) ormEntity.user_id = domainEntity.userId;
+    if (domainEntity.firstName) ormEntity.firstName = domainEntity.firstName;
+    if (domainEntity.lastName) ormEntity.lastName = domainEntity.lastName;
+    if (domainEntity.phone) ormEntity.phone = domainEntity.phone;
+    if (domainEntity.status) ormEntity.status = domainEntity.status;
+    if (domainEntity.address) ormEntity.address = domainEntity.address;
+    if (domainEntity.createdAt) ormEntity.createdAt = domainEntity.createdAt;
+    if (domainEntity.updatedAt) ormEntity.updatedAt = domainEntity.updatedAt;
 
     return ormEntity;
   }

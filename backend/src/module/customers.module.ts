@@ -2,11 +2,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CustomerService } from '@domain/customers/customer.service';
 import { CustomersController } from '@controller/customers.controller';
-import { CustomerOrmEntity } from '@infrastructure/database/postgres/customers/customer.entity';
+import { CustomerProfileOrmEntity } from '@infrastructure/database/postgres/customers/customer.entity';
 import { PostgresCustomerRepository } from '@infrastructure/database/postgres/customers/customer.repository';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CustomerOrmEntity])],
+  imports: [TypeOrmModule.forFeature([CustomerProfileOrmEntity])],
   controllers: [CustomersController],
   providers: [
     CustomerService,
@@ -15,6 +15,6 @@ import { PostgresCustomerRepository } from '@infrastructure/database/postgres/cu
       useClass: PostgresCustomerRepository,
     },
   ],
-  exports: [CustomerService],
+  exports: [CustomerService, 'CustomerRepository'],
 })
 export class CustomersModule { }
